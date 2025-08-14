@@ -1,0 +1,5 @@
+- [ ] use some other Time that allows for pausing, slow mo, etc. Maybe use `Time<Virtual>`?
+
+- [ ] Switch to bevy gearbox for the logic?
+- [ ] Allow moving along a spline or something. Let the user control it, instead of hardcoding to change the translation's X component
+- [ ] When door is closing and is asked to open, ease out does not happen. should it?

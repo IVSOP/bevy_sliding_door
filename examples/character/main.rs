@@ -1,6 +1,7 @@
 mod character;
 
 use avian3d::{prelude::*, PhysicsPlugins};
+use bevy_gearbox::GearboxPlugin;
 use character::*;
 mod menu;
 use bevy::{
@@ -8,9 +9,8 @@ use bevy::{
     window::{PresentMode, WindowTheme},
 };
 use bevy_atmosphere::prelude::*;
-use menu::*;
-
 use bevy_sliding_door::*;
+use menu::*;
 
 #[derive(Component)]
 pub struct SensorDoor(Entity);
@@ -53,6 +53,7 @@ fn main() {
         PhysicsDebugPlugin::default(),
         CharacterPlugin,
         AtmospherePlugin,
+        GearboxPlugin,
         SlidingDoorPlugin,
     ))
     .insert_gizmo_config(
@@ -72,7 +73,7 @@ fn main() {
     .add_systems(Startup, setup_scene)
     .add_systems(
         Update,
-        (detect_enter_sensor, detect_exit_sensor, change_text),
+        (detect_enter_sensor, detect_exit_sensor),
     );
 
     app.run();
@@ -246,39 +247,93 @@ fn setup_scene(
         });
 }
 
-fn change_text(
-    action_text: Single<&mut TextSpan, (With<ActionText>, Without<RequestText>)>,
-    request_text: Single<&mut TextSpan, (With<RequestText>, Without<ActionText>)>,
-    door: Single<(Option<&SlideAction>, Option<&SlideActionRequest>), With<SlidingDoor>>,
-) {
-    let (action_option, request_option) = door.into_inner();
-    let mut action_textspan = action_text.into_inner();
-    let mut request_textspan = request_text.into_inner();
+// fn change_text(
+//     action_text: Single<&mut TextSpan, (With<ActionText>, Without<RequestText>)>,
+//     request_text: Single<&mut TextSpan, (With<RequestText>, Without<ActionText>)>,
+//     door: Single<(Option<&SlideAction>, Option<&SlideActionRequest>), With<SlidingDoor>>,
+// ) {
+//     let (action_option, request_option) = door.into_inner();
+//     let mut action_textspan = action_text.into_inner();
+//     let mut request_textspan = request_text.into_inner();
 
-    let action_text: String = if let Some(action) = action_option {
-        match action {
-            SlideAction::Open => "opening".into(),
-            SlideAction::WaitBeforeClose { waited_for_secs } => {
-                format!("waiting ({:.2} secs)", waited_for_secs)
-            }
-            SlideAction::Close => "closing".into(),
-        }
-    } else {
-        "none".into()
-    };
+//     let action_text: String = if let Some(action) = action_option {
+//         match action {
+//             SlideAction::Open => "opening".into(),
+//             SlideAction::WaitBeforeClose { waited_for_secs } => {
+//                 format!("waiting ({:.2} secs)", waited_for_secs)
+//             }
+//             SlideAction::Close => "closing".into(),
+//         }
+//     } else {
+//         "none".into()
+//     };
 
-    let request_text: String = if let Some(request) = request_option {
-        match request {
-            SlideActionRequest::RequestOpen => "open".into(),
-            SlideActionRequest::RequestClose => "close".into(),
-        }
-    } else {
-        "none".into()
-    };
+//     let request_text: String = if let Some(request) = request_option {
+//         match request {
+//             SlideActionRequest::RequestOpen => "open".into(),
+//             SlideActionRequest::RequestClose => "close".into(),
+//         }
+//     } else {
+//         "none".into()
+//     };
 
-    **action_textspan = action_text;
-    **request_textspan = request_text;
-}
+//     **action_textspan = action_text;
+//     **request_textspan = request_text;
+// }
+
+// fn detect_enter_sensor(
+//     mut collision_event_reader: EventReader<CollisionStarted>,
+//     player: Single<Entity, With<Player>>,
+//     sensors: Populated<&SensorDoor>,
+//     mut commands: Commands,
+// ) {
+//     let player_entity = player.into_inner();
+//     for CollisionStarted(entity1, entity2) in collision_event_reader.read() {
+//         let entity1 = *entity1;
+//         let entity2 = *entity2;
+//
+//         if entity1 == player_entity {
+//             if let Ok(door_sensor) = sensors.get(entity2) {
+//                 commands
+//                     .entity(door_sensor.0)
+//                     .insert(SlideActionRequest::RequestOpen);
+//             }
+//         } else if entity2 == player_entity {
+//             if let Ok(door_sensor) = sensors.get(entity1) {
+//                 commands
+//                     .entity(door_sensor.0)
+//                     .insert(SlideActionRequest::RequestOpen);
+//             }
+//         }
+//     }
+// }
+//
+// fn detect_exit_sensor(
+//     mut collision_event_reader: EventReader<CollisionEnded>,
+//     player: Single<Entity, With<Player>>,
+//     sensors: Populated<&SensorDoor>,
+//     mut commands: Commands,
+// ) {
+//     let player_entity = player.into_inner();
+//     for CollisionEnded(entity1, entity2) in collision_event_reader.read() {
+//         let entity1 = *entity1;
+//         let entity2 = *entity2;
+//
+//         if entity1 == player_entity {
+//             if let Ok(door_sensor) = sensors.get(entity2) {
+//                 commands
+//                     .entity(door_sensor.0)
+//                     .insert(SlideActionRequest::RequestClose);
+//             }
+//         } else if entity2 == player_entity {
+//             if let Ok(door_sensor) = sensors.get(entity1) {
+//                 commands
+//                     .entity(door_sensor.0)
+//                     .insert(SlideActionRequest::RequestClose);
+//             }
+//         }
+//     }
+// }
 
 fn detect_enter_sensor(
     mut collision_event_reader: EventReader<CollisionStarted>,
@@ -293,15 +348,13 @@ fn detect_enter_sensor(
 
         if entity1 == player_entity {
             if let Ok(door_sensor) = sensors.get(entity2) {
-                commands
-                    .entity(door_sensor.0)
-                    .insert(SlideActionRequest::RequestOpen);
+                commands.trigger_targets(RequestOpen, door_sensor.0);
+                println!("RequestOpen sent");
             }
         } else if entity2 == player_entity {
             if let Ok(door_sensor) = sensors.get(entity1) {
-                commands
-                    .entity(door_sensor.0)
-                    .insert(SlideActionRequest::RequestOpen);
+                commands.trigger_targets(RequestOpen, door_sensor.0);
+                println!("RequestOpen sent");
             }
         }
     }
@@ -320,16 +373,48 @@ fn detect_exit_sensor(
 
         if entity1 == player_entity {
             if let Ok(door_sensor) = sensors.get(entity2) {
-                commands
-                    .entity(door_sensor.0)
-                    .insert(SlideActionRequest::RequestClose);
+                commands.trigger_targets(RequestClose, door_sensor.0);
+                println!("RequestClose sent");
             }
         } else if entity2 == player_entity {
             if let Ok(door_sensor) = sensors.get(entity1) {
-                commands
-                    .entity(door_sensor.0)
-                    .insert(SlideActionRequest::RequestClose);
+                commands.trigger_targets(RequestClose, door_sensor.0);
+                println!("RequestClose sent");
             }
         }
     }
 }
+
+// fn change_text(
+//     action_text: Single<&mut TextSpan, (With<ActionText>, Without<RequestText>)>,
+//     request_text: Single<&mut TextSpan, (With<RequestText>, Without<ActionText>)>,
+//     door: Single<(Option<&SlideAction>, Option<&SlideActionRequest>), With<SlidingDoor>>,
+// ) {
+//     let (action_option, request_option) = door.into_inner();
+//     let mut action_textspan = action_text.into_inner();
+//     let mut request_textspan = request_text.into_inner();
+
+//     let action_text: String = if let Some(action) = action_option {
+//         match action {
+//             SlideAction::Open => "opening".into(),
+//             SlideAction::WaitBeforeClose { waited_for_secs } => {
+//                 format!("waiting ({:.2} secs)", waited_for_secs)
+//             }
+//             SlideAction::Close => "closing".into(),
+//         }
+//     } else {
+//         "none".into()
+//     };
+
+//     let request_text: String = if let Some(request) = request_option {
+//         match request {
+//             SlideActionRequest::RequestOpen => "open".into(),
+//             SlideActionRequest::RequestClose => "close".into(),
+//         }
+//     } else {
+//         "none".into()
+//     };
+
+//     **action_textspan = action_text;
+//     **request_textspan = request_text;
+// }

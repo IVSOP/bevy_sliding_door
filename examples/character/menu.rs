@@ -4,9 +4,10 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
-use bevy_egui::*;
+use bevy_egui::{egui::Slider, *};
+use bevy_sliding_door::{RequestClose, RequestOpen};
 
-use crate::{SlideActionRequest, SlidingDoor};
+use crate::{SlidingDoor};
 
 pub struct MenuPlugin;
 
@@ -63,6 +64,7 @@ fn egui_menu(
     doors: Query<Entity, With<SlidingDoor>>,
     mut commands: Commands,
     mut config_store: ResMut<GizmoConfigStore>,
+    mut time: ResMut<Time<Virtual>>,
 ) -> Result {
     let fps_text = match diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
@@ -84,18 +86,17 @@ fn egui_menu(
             );
             if ui.button("Open all doors").clicked() {
                 for door in doors.iter() {
-                    commands
-                        .entity(door)
-                        .insert(SlideActionRequest::RequestOpen);
+                    commands.trigger_targets(RequestOpen, door);
                 }
             }
             if ui.button("Close all doors").clicked() {
                 for door in doors.iter() {
-                    commands
-                        .entity(door)
-                        .insert(SlideActionRequest::RequestClose);
+                    commands.trigger_targets(RequestClose, door);
                 }
             }
+            let mut speed = time.relative_speed();
+            ui.add(Slider::new(&mut speed, 0.0..=10.0).text("Time relative speed"));
+            time.set_relative_speed(speed);
         });
 
     Ok(())

@@ -16,13 +16,16 @@ pub struct RequestOpen;
 #[derive(Event, Clone)]
 pub struct RequestClose;
 
-// these events are internal to the plugin, emited after the animations finish
+// these events are internal to the plugin, emited when animations/countdowns finish
 
 #[derive(Event, Clone)]
 pub struct FinishedOpening;
 
 #[derive(Event, Clone)]
 pub struct FinishedClosing;
+
+#[derive(Event, Clone)]
+pub struct FinishedWaiting;
 
 // --- State Marker Components ---
 
@@ -42,27 +45,14 @@ pub struct DoorOpen;
 #[derive(Component, Clone)]
 pub struct DoorClosing;
 
-/// Debug system to print messages when states are entered.
-pub fn print_enter_state_messages(trigger: Trigger<EnterState>, query: Query<&Name>) {
-    if let Ok(name) = query.get(trigger.target()) {
-        println!("[STATE ENTERED]: {}", name);
-        
-        // // Add some visual feedback for door actions
-        // match name.as_str() {
-        //     "Closed" => println!("   🚪 Door is closed and locked."),
-        //     "Opening" => println!("   🔄 Door is opening... (using After transition)"),
-        //     "Open" => println!("   🚪 Door is wide open!"),
-        //     "Closing" => println!("   🔄 Door is closing... (using After transition)"),
-        //     _ => {}
-        // }
-    }
+/// Marker component for when the door is waiting before starting to close
+#[derive(Component, Clone, Default)]
+pub struct DoorWaiting {
+    pub waiting_for_secs: f32,
 }
 
 /// Hook to automatically create the state machine on sliding door entities
-pub fn create_door_state_machine(
-    trigger: Trigger<OnAdd, SlidingDoor>,
-    mut commands: Commands
-) {
+pub fn create_door_state_machine(trigger: Trigger<OnAdd, SlidingDoor>, mut commands: Commands) {
     let door_entity = trigger.target();
 
     commands.queue(move |world: &mut World| {
@@ -73,13 +63,16 @@ pub fn create_door_state_machine(
         let opening = world.spawn(()).id();
         let open = world.spawn(()).id();
         let closing = world.spawn(()).id();
+        let waiting = world.spawn(()).id();
 
         // Create transition entities
         let closed_to_opening = world.spawn(()).id();
         let opening_to_open = world.spawn(()).id();
-        let open_to_closing = world.spawn(()).id();
+        let open_to_waiting = world.spawn(()).id();
+        let waiting_to_closing = world.spawn(()).id();
         let closing_to_closed = world.spawn(()).id();
         let closing_to_opening = world.spawn(()).id();
+        let waiting_to_open = world.spawn(()).id();
 
         // Set up the machine root
         world.entity_mut(machine_entity).insert((
@@ -99,7 +92,7 @@ pub fn create_door_state_machine(
             Name::new("Opening"),
             StateChildOf(machine_entity),
             StateComponent(DoorOpening), // With<DoorOpening> will tell you doors that are in the DoorOpening state
-            DeferEvents::<RequestClose>::new(), // Defer RequestClose while opening. Once the door finishes opening, it will then start to close
+            DeferEvents::<RequestClose>::new(), // Defer RequestClose while opening. Once the door finishes opening, it will then start to close (or in this case, go to the Waiting state)
         ));
 
         world.entity_mut(open).insert((
@@ -112,6 +105,12 @@ pub fn create_door_state_machine(
             Name::new("Closing"),
             StateChildOf(machine_entity),
             StateComponent(DoorClosing),
+        ));
+
+        world.entity_mut(waiting).insert((
+            Name::new("Waiting"),
+            StateChildOf(machine_entity),
+            StateComponent(DoorWaiting::default()),
         ));
 
         // Set up transitions - immediate event-driven transitions, then After delays
@@ -131,9 +130,9 @@ pub fn create_door_state_machine(
             Source(opening),
         ));
 
-        world.entity_mut(open_to_closing).insert((
-            Name::new("Open -> Closing (RequestClose)"),
-            Target(closing),
+        world.entity_mut(open_to_waiting).insert((
+            Name::new("Open -> Waiting (RequestClose)"),
+            Target(waiting),
             TransitionListener::<RequestClose>::default(),
             TransitionKind::External,
             Source(open),
@@ -153,6 +152,22 @@ pub fn create_door_state_machine(
             TransitionListener::<RequestOpen>::default(),
             TransitionKind::External,
             Source(closing),
+        ));
+
+        world.entity_mut(waiting_to_closing).insert((
+            Name::new("Waiting -> Closing (FinishedWaiting)"),
+            Target(closing),
+            TransitionListener::<FinishedWaiting>::default(),
+            TransitionKind::External,
+            Source(waiting),
+        ));
+
+        world.entity_mut(waiting_to_open).insert((
+            Name::new("Waiting -> Open (RequestOpen)"),
+            Target(open),
+            TransitionListener::<RequestOpen>::default(),
+            TransitionKind::External,
+            Source(waiting),
         ));
     });
 }

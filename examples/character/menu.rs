@@ -7,7 +7,7 @@ use bevy::{
 use bevy_egui::{egui::Slider, *};
 use bevy_sliding_door::{RequestClose, RequestOpen};
 
-use crate::{SlidingDoor};
+use crate::SlidingDoor;
 
 pub struct MenuPlugin;
 

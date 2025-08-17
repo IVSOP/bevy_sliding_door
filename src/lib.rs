@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 mod utils;
-use bevy_gearbox::active::Active;
 use utils::*;
 
 mod plugin;
@@ -14,7 +13,7 @@ pub use state_machine::*;
 pub struct SlidingDoor {
     pub start_x: f32,
     pub end_x: f32,
-    pub idle_secs: f32,
+    pub waiting_secs: f32,
     /// how long the opening and closing should last
     pub target_duration_secs: f32,
 
@@ -25,7 +24,7 @@ pub struct SlidingDoor {
 pub fn handle_door_open(
     mut commands: Commands,
     mut opening_doors: Populated<(Entity, &mut Transform, &mut SlidingDoor), With<DoorOpening>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     let delta_secs = time.delta_secs();
 
@@ -52,7 +51,7 @@ pub fn handle_door_open(
 pub fn handle_door_close(
     mut commands: Commands,
     mut opening_doors: Populated<(Entity, &mut Transform, &mut SlidingDoor), With<DoorClosing>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     let delta_secs = time.delta_secs();
 
@@ -73,5 +72,21 @@ pub fn handle_door_close(
         }
 
         transform.translation.x = x;
+    }
+}
+
+pub fn handle_door_waiting(
+    mut commands: Commands,
+    mut waiting_doors: Populated<(Entity, &mut DoorWaiting, &SlidingDoor)>,
+    time: Res<Time>,
+) {
+    let delta_secs = time.delta_secs();
+
+    for (entity, mut waiting, door) in waiting_doors.iter_mut() {
+        waiting.waiting_for_secs += delta_secs;
+
+        if waiting.waiting_for_secs >= door.waiting_secs {
+            commands.trigger_targets(FinishedWaiting, entity);
+        }
     }
 }

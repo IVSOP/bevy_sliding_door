@@ -1,4 +1,4 @@
-use bevy_gearbox::prelude::{replay_deferred_events, transition_listener, StateComponentAppExt};
+use bevy_gearbox::prelude::{replay_deferred_event, transition_listener, StateComponentAppExt};
 
 use super::*;
 
@@ -12,7 +12,7 @@ impl Plugin for SlidingDoorPlugin {
             .add_observer(transition_listener::<FinishedOpening>)
             .add_observer(transition_listener::<FinishedClosing>)
             .add_observer(transition_listener::<FinishedWaiting>)
-            .add_observer(replay_deferred_events::<RequestClose>)
+            .add_observer(replay_deferred_event::<RequestClose>)
             .add_state_component::<DoorClosed>()
             .add_state_component::<DoorOpen>()
             .add_state_component::<DoorClosing>()

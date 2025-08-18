@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 use bevy_gearbox::transitions::Source;
@@ -85,14 +83,14 @@ pub fn create_door_state_machine(trigger: Trigger<OnAdd, SlidingDoor>, mut comma
         world.entity_mut(closed).insert((
             Name::new("Closed"),
             StateChildOf(machine_entity),
-            StateComponent(DoorClosed),
+            // StateComponent(DoorClosed),
         ));
 
         world.entity_mut(opening).insert((
             Name::new("Opening"),
             StateChildOf(machine_entity),
             StateComponent(DoorOpening), // With<DoorOpening> will tell you doors that are in the DoorOpening state
-            DeferEvents::<RequestClose>::new(), // Defer RequestClose while opening. Once the door finishes opening, it will then start to close (or in this case, go to the Waiting state)
+            DeferEvent::<RequestClose>::new(), // Defer RequestClose while opening. Once the door finishes opening, it will then start to close (or in this case, go to the Waiting state)
         ));
 
         world.entity_mut(open).insert((
